@@ -1,0 +1,10 @@
+*.DS_Store
+.idea
+.vscode
+*.bck
+./*.env
+interpolated-files
+!docker-compose/
+docker-compose/*
+!docker-compose/docker-compose.yml
+node_modules
