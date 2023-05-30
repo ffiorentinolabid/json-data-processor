@@ -1,3 +1,5 @@
+'use strict'
+
 const JsonPath = require("jsonpath");
 const Velocity = require("velocityjs");
 const jsonata = require("jsonata");
@@ -21,7 +23,7 @@ class JsonDataProcessor {
     for (let i = 0; i < this.config.steps.length; i++) {
       const step = this.config.steps[i];
       const stepName = step.name || `outputStep${i}`;
-
+      const outputKey = step.outputKey || stepName;
       let input;
       if (step.input === "original") {
         input = inputData;
@@ -57,10 +59,11 @@ class JsonDataProcessor {
         default:
           throw new Error(`Unsupported step type: ${step.type}`);
       }
-
+      this.globalState[outputKey] = result;
       this.logDebug(`Step ${i + 1} Output:`, this.globalState[stepName]);
-
-      this.globalState[stepName] = outputData;
+      if (this.config.debug) {
+        this.globalState[stepName] = outputData;
+      }
     }
     if (this.config.debug) {
       this.logDebug(
@@ -161,18 +164,22 @@ class JsonDataProcessor {
     //   }
     // })
     this.logDebug(`customFunction Result:`, result);
-    this.globalState[step.outputKey] = result;
     return result;
   }
 
   applyJSONPath(data, step) {
-    if (!step.query) {
+    if (!step.query && !step.value) {
       throw new Error("Missing query for JSONPath step");
     }
-    const result = JsonPath.query(data, step.query);
-    this.logDebug(`JSONPath Result:`, result);
-    this.globalState[step.outputKey] = result;
-    return result;
+    if (step.query) {
+      const result = JsonPath.query(data, step.query);
+      this.logDebug(`JSONPath Result:`, result);
+      return result;
+    } else {
+      const result = JsonPath.value(data, step.value);
+      this.logDebug(`JSONPath Result:`, result);
+      return result;
+    }
   }
 
   async applyVTL(data, step) {
@@ -186,10 +193,8 @@ class JsonDataProcessor {
 
     try {
       const parsedResult = JSON.parse(result);
-      this.globalState[step.outputKey] = parsedResult;
       return parsedResult;
     } catch (err) {
-      this.globalState[step.outputKey] = result;
       return result;
     }
   }
@@ -221,7 +226,6 @@ class JsonDataProcessor {
     const expression = jsonata(step.expression);
     var result = await expression.evaluate(data);
     this.logDebug(`JSONPath Result:`, result);
-    this.globalState[step.outputKey] = result;
     return result;
   }
 
@@ -242,7 +246,6 @@ class JsonDataProcessor {
 
     const result = urlString;
     this.logDebug(`JSONPath Result:`, result);
-    this.globalState[step.outputKey] = result;
     return result;
   }
 
@@ -256,7 +259,7 @@ class JsonDataProcessor {
       if (query) {
         return query;
       }
-      else{return null}
+      else { return null }
     });
     const result = (await Promise.all(path)).filter(Boolean).join('/')
     return result;
@@ -280,7 +283,7 @@ class JsonDataProcessor {
 
   async applyApiCall(data, step, globalState) {
     const { method, url, headers, params, data: reqBody } = step;
-    const token = this.globalState.token ? this.globalState.token : "" ;
+    const token = this.globalState.token ? this.globalState.token : "";
 
     // Resolve parameter values using resolveValue function
     const resolvedUrl = await this.resolveValue(url, this.globalState);
@@ -309,7 +312,6 @@ class JsonDataProcessor {
 
     const result = response.data;
     this.logDebug(`JSONPath Result:`, result);
-    this.globalState[step.outputKey] = result;
     return result;
   }
 }
