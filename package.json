@@ -13,10 +13,16 @@
     "axios": "^1.4.0",
     "jsonata": "^2.0.3",
     "jsonpath": "^1.1.1",
-    "querystring": "^0.2.1",
     "url": "^0.11.0",
     "velocityjs": "^2.0.6",
     "vtl": "^22.2.22",
     "xss": "^1.0.14"
+  },
+  "devDependencies": {
+    "@mia-platform/eslint-config-mia": "^3.0.0",
+    "eslint": "^8.41.0"
+  },
+  "eslintConfig": {
+    "extends": "@mia-platform/eslint-config-mia"
   }
 }

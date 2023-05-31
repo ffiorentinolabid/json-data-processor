@@ -1,3 +1,5 @@
+'use strict'
+
 // customFunctions.js
 module.exports = {
   double: (input) => input.value * 2,
@@ -17,8 +19,8 @@ module.exports = {
   mapValues: (input, valueMap) => valueMap[input.value] || input.value,
   replace: (input, searchValue, newValue) => input.str.replace(searchValue, newValue),
   extract: (input, regex) => {
-    const match = input.str.match(new RegExp(regex));
-    return match ? match[0] : "";
+    const match = input.str.match(new RegExp(regex))
+    return match ? match[0] : ''
   },
-};
+}
 
