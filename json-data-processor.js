@@ -7,6 +7,7 @@ const url = require('url')
 const axios = require('axios')
 const fs = require('fs')
 const pino = require('pino')
+const set = require('lodash.set')
 const cf = require('./custom-functions')
 
 
@@ -59,10 +60,10 @@ class JsonDataProcessor {
       default:
         throw new Error(`Unsupported step type: ${step.type}`)
       }
-      this.globalState[outputKey] = outputData
+      set(this.globalState, outputKey, outputData)
       this.logger.debug(`Step ${i + 1} Output:`, this.globalState[stepName])
       if (this.config.logLevel === 'debug') {
-        this.globalState[stepName] = outputData
+        set(this.globalState, stepName, outputData)
       }
     }
     this.logger.debug(
