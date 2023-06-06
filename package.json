@@ -1,6 +1,6 @@
 {
   "name": "json-data-processor",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "",
   "main": "json-data-processor.js",
   "scripts": {
