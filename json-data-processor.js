@@ -16,7 +16,6 @@ class JsonDataProcessor {
     this.globalState = {}
     this.logger = pino({
       level: config.logLevel || 'info',
-      prettyPrint: true,
     })
   }
   /* eslint-disable no-await-in-loop */
