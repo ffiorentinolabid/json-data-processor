@@ -35,7 +35,7 @@ class JsonDataProcessor {
       }
 
       let outputData
-      this.logger.debug(`Step ${i + 1} Input:`, input)
+      this.logger.debug({ input }, `Step ${i + 1} Input`)
       switch (step.type) {
       case 'jsonpath':
         outputData = await this.applyJSONPath(input, step)
@@ -61,14 +61,12 @@ class JsonDataProcessor {
         throw new Error(`Unsupported step type: ${step.type}`)
       }
       set(this.globalState, outputKey, outputData)
-      this.logger.debug(`Step ${i + 1} Output:`, this.globalState[stepName])
+      this.logger.debug({ [stepName]: this.globalState[stepName] }, `Step ${i + 1} Output`)
       if (this.config.logLevel === 'debug') {
         set(this.globalState, stepName, outputData)
       }
     }
-    this.logger.debug(
-      `globalState Output:`,
-      JSON.stringify(this.globalState, null, 4),
+    this.logger.debug({ globalState: this.globalState } `globalState Output`,
     )
     return this.globalState
   }
@@ -158,7 +156,7 @@ class JsonDataProcessor {
     //     result = cf[customFunction](processedParams);
     //   }
     // })
-    this.logger.debug(`customFunction Result:`, result)
+    this.logger.debug({ result }, `customFunction Result`)
     return result
   }
 
@@ -168,11 +166,11 @@ class JsonDataProcessor {
     }
     if (step.query) {
       const result = JsonPath.query(data, step.query)
-      this.logger.debug(`JSONPath Result:`, result)
+      this.logger.debug({ result }, `JSONPath Result`)
       return result
     }
     const result = JsonPath.value(data, step.value)
-    this.logger.debug(`JSONPath Result:`, result)
+    this.logger.debug({ result }, `JSONPath Result`)
     return result
   }
 
@@ -219,7 +217,7 @@ class JsonDataProcessor {
     }
     const expression = jsonata(step.expression)
     const result = await expression.evaluate(data)
-    this.logger.debug(`JSONPath Result:`, result)
+    this.logger.debug({ result }, `Result`)
     return result
   }
 
@@ -239,7 +237,7 @@ class JsonDataProcessor {
     })
 
     const result = urlString
-    this.logger.debug(`JSONPath Result:`, result)
+    this.logger.debug({ result }, `Result`)
     return result
   }
 
@@ -308,7 +306,7 @@ class JsonDataProcessor {
     }
 
     const result = response.data
-    this.logger.debug(`JSONPath Result:`, result)
+    this.logger.debug({ result }, `Result`)
     return result
   }
 }
