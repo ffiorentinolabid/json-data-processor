@@ -66,7 +66,7 @@ class JsonDataProcessor {
         set(this.globalState, stepName, outputData)
       }
     }
-    this.logger.debug({ globalState: this.globalState } `globalState Output`)
+    this.logger.debug({ globalState: this.globalState }, `globalState Output`)
     return this.globalState
   }
 
