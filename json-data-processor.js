@@ -15,25 +15,36 @@ class JsonDataProcessor {
   constructor(config) {
     this.config = config
     this.globalState = {}
+    this.axios = axios.create({
+    })
     this.logger = pino({
       level: config.logLevel || 'info',
+      targets: [{
+        level: 'info',
+        target: 'pino-pretty',
+        options: {},
+      },
+      ],
     })
+    decorateResponseWithDuration(this.axios)
   }
   /* eslint-disable no-await-in-loop */
   async processData(inputData) {
+    let outputKey
     for (let i = 0; i < this.config.steps.length; i++) {
       const step = this.config.steps[i]
       const stepName = step.name || `outputStep${i}`
-      const outputKey = step.outputKey || stepName
       let input
       if (step.input === 'original') {
         input = inputData
       } else if (step.input === 'previous') {
-        input = this.globalState[stepName]
+        input = this.globalState[outputKey] || inputData
       } else {
         input = this.globalState[step.input] || inputData
       }
+      outputKey = step.outputKey || stepName
 
+      if (step.output === 'global') { this.globalState = {} }
       let outputData
       this.logger.debug({ input }, `Step ${i + 1} Input`)
       switch (step.type) {
@@ -61,7 +72,7 @@ class JsonDataProcessor {
         throw new Error(`Unsupported step type: ${step.type}`)
       }
       set(this.globalState, outputKey, outputData)
-      this.logger.debug({ [stepName]: this.globalState[stepName] }, `Step ${i + 1} Output`)
+      this.logger.debug({ [outputKey]: outputData }, `Step ${i + 1} Output`)
       if (this.config.logLevel === 'debug') {
         set(this.globalState, stepName, outputData)
       }
@@ -70,13 +81,6 @@ class JsonDataProcessor {
     return this.globalState
   }
 
-  // validateConfig(config) {
-  //   // Implement configuration validation here
-  // }
-
-  // validateInput(inputData) {
-  //   // Implement input data validation here
-  // }
   escape(str) {
     const replacements = {
       '&': '&amp;',
@@ -124,37 +128,20 @@ class JsonDataProcessor {
         //   processedParams[key] = queryResults;
         // } else {
         // eslint-disable-next-line prefer-destructuring
-        processedParams.key = queryResults[0]
+        processedParams[key] = queryResults[0]
         // }
       } else {
         processedParams[key] = value
       }
     }
-
+    this.logger.debug({ processedParams })
     return processedParams
   }
 
-  applyCustomFunction(globalState, step) {
-    // New logic for custom function steps
+  async applyCustomFunction(globalState, step) {
     const { function: customFunction, parameters } = step
-    const processedParams = this.processParameters(parameters, globalState)
-
-    const result = cf[customFunction](processedParams)
-    //   Object.keys(processedParams).forEach((key) => {
-    //   if (Array.isArray(processedParams[key])) {
-    //     var results=[]
-    //     for(var i=0;i<processedParams[key].length;i++){
-    //         const input={}
-
-    //         input[key] = processedParams[key][i]
-    //         results.push(cf[customFunction](input))
-    //     }
-    //     result = results
-
-    //   } else {
-    //     result = cf[customFunction](processedParams);
-    //   }
-    // })
+    const processedParams = await this.processParameters(parameters, globalState)
+    const result = typeof customFunction === 'function' ? customFunction(processedParams) : cf[customFunction](processedParams)
     this.logger.debug({ result }, `customFunction Result`)
     return result
   }
@@ -273,10 +260,15 @@ class JsonDataProcessor {
 
     return queryParams
   }
-
+  getValidateStatus({ validateStatus }) {
+    if (validateStatus && typeof validateStatus !== 'function') {
+      throw new Error('validateStatus must be a function')
+    }
+    return validateStatus
+  }
   // eslint-disable-next-line no-unused-vars
   async applyApiCall(data, step, globalState) {
-    const { method, url: urlToUse, headers, params, data: reqBody } = step
+    const { method, url: urlToUse, headers, params, data: reqBody, options = {} } = step
     const token = this.globalState.token ? this.globalState.token : ''
 
     // Resolve parameter values using resolveValue function
@@ -284,30 +276,63 @@ class JsonDataProcessor {
     const resolvedHeaders = await this.resolveValue(headers, this.globalState)
     const resolvedParams = await this.resolveValue(params, this.globalState)
     const resolvedReqBody = await this.resolveValue(reqBody, this.globalState)
+    const resolvedOptions = await this.resolveValue(options, this.globalState)
 
     // Set the authorization header if token is available
     if (token) {
       resolvedHeaders.Authorization = `Bearer ${token}`
     }
-
+    this.logger.trace({ method, resolvedHeaders, resolvedUrl, resolvedParams, resolvedReqBody }, `Trying to make API call`)
+    const validateStatus = this.getValidateStatus(resolvedOptions)
+    try {
     // Make the API call with Axios library
-    const response = await axios({
-      method,
-      url: resolvedUrl,
-      headers: resolvedHeaders,
-      params: resolvedParams,
-      data: resolvedReqBody,
-    })
+      const response = await this.axios({
+        method,
+        url: resolvedUrl,
+        headers: resolvedHeaders,
+        params: resolvedParams,
+        data: resolvedReqBody,
+        ...validateStatus ? { validateStatus } : {},
+        timeout: resolvedOptions.timeout,
+        proxy: resolvedOptions.proxy,
+      // ...httpsAgent ? { httpsAgent } : {},
+      })
 
-    // Filter the response with the filter step (if present)
-    if (step.filter) {
-      // return applyFilter(response.data, step.filter, globalState)
+      const responseBody = {
+        statusCode: response.status,
+        headers: { ...response.headers.toJSON() },
+        payload: response.data,
+        duration: response.duration,
+      }
+      this.logger.debug({ responseBody }, `Result`)
+      return responseBody
+    } catch (error) {
+      this.logger.debug({ error }, `Axios Error`)
+      return { error }
     }
-
-    const result = response.data
-    this.logger.debug({ result }, `Result`)
-    return result
   }
 }
 
+function decorateResponseWithDuration(axiosInstance) {
+  axiosInstance.interceptors.response.use(
+    (response) => {
+      response.config.metadata.endTime = new Date()
+      response.duration = response.config.metadata.endTime - response.config.metadata.startTime
+      return response
+    },
+    (error) => {
+      error.config.metadata.endTime = new Date()
+      error.duration = error.config.metadata.endTime - error.config.metadata.startTime
+      return Promise.reject(error)
+    }
+  )
+
+  axiosInstance.interceptors.request.use(
+    (config) => {
+      config.metadata = { startTime: new Date() }
+      return config
+    }, (error) => {
+      return Promise.reject(error)
+    })
+}
 module.exports = JsonDataProcessor
