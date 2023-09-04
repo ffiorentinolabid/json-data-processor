@@ -137,11 +137,8 @@ const config = {
     ]
 };
 ```
+---
 
 ## License
 
 This library is licensed under the MIT License. See `LICENSE` file for details.
-
----
-
-Feel free to extend this README according to your specific requirements and additional library features.
