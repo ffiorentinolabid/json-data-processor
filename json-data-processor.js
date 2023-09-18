@@ -276,14 +276,14 @@ class JsonDataProcessor {
     const resolvedHeaders = await this.resolveValue(headers, this.globalState)
     const resolvedParams = await this.resolveValue(params, this.globalState)
     const resolvedReqBody = await this.resolveValue(reqBody, this.globalState)
-    const resolvedOptions = await this.resolveValue(options, this.globalState)
+    const resolvedOptions = await this.processParameters(options, this.globalState)
 
     // Set the authorization header if token is available
     if (token) {
       resolvedHeaders.Authorization = `Bearer ${token}`
     }
-    this.logger.trace({ method, resolvedHeaders, resolvedUrl, resolvedParams, resolvedReqBody }, `Trying to make API call`)
-    const validateStatus = this.getValidateStatus(resolvedOptions)
+    const { validationRules } = resolvedOptions
+    this.logger.trace({ method, resolvedHeaders, resolvedUrl, resolvedParams, resolvedReqBody, resolvedOptions, validationRules }, `Trying to make API call`)
     try {
     // Make the API call with Axios library
       const response = await this.axios({
@@ -292,7 +292,9 @@ class JsonDataProcessor {
         headers: resolvedHeaders,
         params: resolvedParams,
         data: resolvedReqBody,
-        ...validateStatus ? { validateStatus } : {},
+        ...validationRules ? { validateStatus(status) {
+          return validationRules[status.toString()] || validationRules['default'] || false
+        } } : {},
         timeout: resolvedOptions.timeout,
         proxy: resolvedOptions.proxy,
       // ...httpsAgent ? { httpsAgent } : {},
