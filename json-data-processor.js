@@ -7,7 +7,6 @@ const url = require('url')
 const axios = require('axios')
 const fs = require('fs')
 const pino = require('pino')
-const set = require('lodash.set')
 const cf = require('./custom-functions')
 
 
@@ -71,14 +70,25 @@ class JsonDataProcessor {
       default:
         throw new Error(`Unsupported step type: ${step.type}`)
       }
-      set(this.globalState, outputKey, outputData)
+      this.set(this.globalState, outputKey, outputData)
       this.logger.debug({ [outputKey]: outputData }, `Step ${i + 1} Output`)
       if (this.config.logLevel === 'debug') {
-        set(this.globalState, stepName, outputData)
+        this.set(this.globalState, stepName, outputData)
       }
     }
     this.logger.debug({ globalState: this.globalState }, `globalState Output`)
     return this.globalState
+  }
+
+  set(obj, path, value) {
+    path.split('.').reduce((acc, part, index, arr) => {
+      if (index === arr.length - 1) {
+        acc[part] = value
+      } else {
+        acc[part] = acc[part] || {}
+      }
+      return acc[part]
+    }, obj)
   }
 
   escape(str) {
@@ -327,6 +337,7 @@ class JsonDataProcessor {
     }
   }
 }
+
 
 function decorateResponseWithDuration(axiosInstance) {
   axiosInstance.interceptors.response.use(
