@@ -268,7 +268,7 @@ class JsonDataProcessor {
   }
   // eslint-disable-next-line no-unused-vars
   async applyApiCall(data, step, globalState) {
-    const { method, url: urlToUse, headers, params, data: reqBody, options = {} } = step
+    const { method, url: urlToUse, headers, params, data: reqBody, options = {}, name } = step
     const token = this.globalState.token ? this.globalState.token : ''
 
     // Resolve parameter values using resolveValue function
@@ -309,7 +309,20 @@ class JsonDataProcessor {
       this.logger.debug({ responseBody }, `Result`)
       return responseBody
     } catch (error) {
-      this.logger.debug({ error }, `Axios Error`)
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        this.logger.error({ name, response: error.response }, `Axios Error Response`)
+      } else if (error.request) {
+        // The request was made but no response was received
+        // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
+        // http.ClientRequest in node.js
+        this.logger.error({ name, request: error.request }, `Axios Error Request`)
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        this.logger.error({ name, message: error.message }, `Axios Error`)
+      }
+      this.logger.debug({ config: error.config }, `Axios Error Details`)
       return { error }
     }
   }
