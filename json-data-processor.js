@@ -81,13 +81,17 @@ class JsonDataProcessor {
   }
 
   set(obj, path, value) {
-    path.split('.').reduce((acc, part, index, arr) => {
-      if (index === arr.length - 1) {
-        acc[part] = value
-      } else {
-        acc[part] = acc[part] || {}
+    if (!path) { return value }
+
+    const keys = path.replace(/\[(\d+)]/g, '.$1').split('.')
+
+    return keys.reduce((acc, key, index) => {
+      if (index === keys.length - 1) {
+        acc[key] = value
+      } else if (!(key in acc) || acc[key] === null || typeof acc[key] !== 'object') {
+        acc[key] = isNaN(keys[index + 1]) ? {} : []
       }
-      return acc[part]
+      return acc[key]
     }, obj)
   }
 
@@ -322,7 +326,7 @@ class JsonDataProcessor {
       if (error.response) {
         // The request was made and the server responded with a status code
         // that falls out of the range of 2xx
-        this.logger.error({ name, response: error.response }, `Axios Error Response`)
+        this.logger.error({ name, response: error.response.data }, `Axios Error Response`)
       } else if (error.request) {
         // The request was made but no response was received
         // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
