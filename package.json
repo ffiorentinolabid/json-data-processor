@@ -3,6 +3,10 @@
   "version": "0.6.0",
   "description": "",
   "main": "json-data-processor.js",
+  "files": [
+    "json-data-processor.js",
+    "custom-functions.js"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
