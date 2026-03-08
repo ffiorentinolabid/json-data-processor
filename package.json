@@ -10,21 +10,18 @@
   "homepage": "https://github.com/ffiorentinolabid/json-data-processor",
   "license": "ISC",
   "dependencies": {
-    "ajv": "^8.12.0",
-    "axios": "^1.4.0",
-    "jsonata": "^2.0.3",
-    "jsonpath": "^1.1.1",
+    "ajv": "^8.18.0",
+    "axios": "^1.13.6",
+    "jsonata": "^2.1.0",
+    "jsonpath-plus": "^10.4.0",
     "pino": "^8.14.1",
-    "url": "^0.11.0",
-    "velocityjs": "^2.0.6",
+    "url": "^0.11.4",
+    "velocityjs": "^2.1.5",
     "vtl": "^22.2.22",
-    "xss": "^1.0.14"
+    "xss": "^1.0.15"
   },
   "devDependencies": {
-    "@mia-platform/eslint-config-mia": "^3.0.0",
-    "eslint": "^8.41.0"
-  },
-  "eslintConfig": {
-    "extends": "@mia-platform/eslint-config-mia"
+    "@mia-platform/eslint-config-mia": "^9.0.0",
+    "eslint": "^9.39.3"
   }
 }

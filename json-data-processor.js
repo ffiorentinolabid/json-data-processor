@@ -1,6 +1,6 @@
 'use strict'
 
-const JsonPath = require('jsonpath')
+const { JSONPath } = require('jsonpath-plus')
 const Velocity = require('velocityjs')
 const jsonata = require('jsonata')
 const url = require('url')
@@ -29,6 +29,7 @@ class JsonDataProcessor {
   }
   /* eslint-disable no-await-in-loop */
   async processData(inputData) {
+    this.globalState = {}
     let outputKey
     for (let i = 0; i < this.config.steps.length; i++) {
       const step = this.config.steps[i]
@@ -127,7 +128,7 @@ class JsonDataProcessor {
   }
   async resolveValue(value, globalState) {
     if (typeof value === 'string' && value.startsWith('$.')) {
-      return JsonPath.value(globalState, value)
+      return JSONPath({ path: value, json: globalState })[0]
     }
     return value
   }
@@ -137,7 +138,7 @@ class JsonDataProcessor {
 
     for (const [key, value] of Object.entries(parameters)) {
       if (typeof value === 'string' && value.startsWith('$.')) {
-        const queryResults = JsonPath.query(globalState, value)
+        const queryResults = JSONPath({ path: value, json: globalState })
         //     if (queryResults.length > 1) {
         //   processedParams[key] = queryResults;
         // } else {
@@ -165,11 +166,11 @@ class JsonDataProcessor {
       throw new Error('Missing query for JSONPath step')
     }
     if (step.query) {
-      const result = JsonPath.query(data, step.query)
+      const result = JSONPath({ path: step.query, json: data })
       this.logger.debug({ result }, `JSONPath Result`)
       return result
     }
-    const result = JsonPath.value(data, step.value)
+    const result = JSONPath({ path: step.value, json: data })[0]
     this.logger.debug({ result }, `JSONPath Result`)
     return result
   }
@@ -200,7 +201,7 @@ class JsonDataProcessor {
     } else if (template.type === 'file') {
       const filePath = template.path
       try {
-        const content = await fs.readFileSync(filePath, 'utf8')
+        const content = await fs.promises.readFile(filePath, 'utf8')
         return content
       } catch (error) {
         throw new Error(
@@ -213,7 +214,7 @@ class JsonDataProcessor {
   }
   async applyJSONata(data, step) {
     if (!step.expression) {
-      throw new Error('Missing query for JSONPath step')
+      throw new Error('Missing expression for JSONata step')
     }
     const expression = jsonata(step.expression)
     const result = await expression.evaluate(data)
@@ -257,7 +258,7 @@ class JsonDataProcessor {
     return result
   }
 
-  buildQueryParams(queryParamsConfig, flowMetadata) {
+  async buildQueryParams(queryParamsConfig, flowMetadata) {
     const queryParams = {}
 
     for (const key in queryParamsConfig) {
@@ -267,7 +268,7 @@ class JsonDataProcessor {
           queryParams[key] = configValue
         } else {
           const expression = jsonata(configValue.jsonata)
-          queryParams[key] = expression.evaluate(flowMetadata)
+          queryParams[key] = await expression.evaluate(flowMetadata)
         }
       }
     }
