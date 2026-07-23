@@ -8,3 +8,4 @@ interpolated-files
 docker-compose/*
 !docker-compose/docker-compose.yml
 node_modules
+files/
