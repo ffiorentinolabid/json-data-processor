@@ -6,11 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### [0.6.0] - 2026-07-23
+## [0.7.0] - 2026-07-23
 
 ### Added
 
 - Add iterate on array of objects for step of type `axios`
+
+### Updated
+
+- Update dependencies to resolve security advisories (axios, jsonata, velocityjs, ajv, pino and transitive deps)
 
 ### [0.5.2] - 2026-03-08
 
