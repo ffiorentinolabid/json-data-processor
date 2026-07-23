@@ -7,8 +7,8 @@ const url = require('url')
 const axios = require('axios')
 const fs = require('fs')
 const pino = require('pino')
-const cf = require('./custom-functions')
 
+const cf = require('./custom-functions')
 
 class JsonDataProcessor {
   constructor(config) {
@@ -170,7 +170,7 @@ class JsonDataProcessor {
       this.logger.debug({ result }, `JSONPath Result`)
       return result
     }
-    const result = JSONPath({ path: step.value, json: data })[0]
+    const [result] = JSONPath({ path: step.value, json: data })
     this.logger.debug({ result }, `JSONPath Result`)
     return result
   }
@@ -187,7 +187,7 @@ class JsonDataProcessor {
     try {
       const parsedResult = JSON.parse(result)
       return parsedResult
-    } catch (error) {
+    } catch {
       return result
     }
   }
@@ -217,7 +217,7 @@ class JsonDataProcessor {
       throw new Error('Missing expression for JSONata step')
     }
     const expression = jsonata(step.expression)
-    const result = await expression.evaluate(data)
+    const result = await expression.evaluate(data, { state: this.globalState })
     this.logger.debug({ result }, `Result`)
     return result
   }
@@ -283,15 +283,30 @@ class JsonDataProcessor {
   }
   // eslint-disable-next-line no-unused-vars
   async applyApiCall(data, step, globalState) {
-    const { method, url: urlToUse, headers, params, data: reqBody, options = {}, name } = step
-    const token = this.globalState.token ? this.globalState.token : ''
+    // Iterated call: fire one request per element of the array referenced by
+    // `step.iterate` (a JSONPath, e.g. "$.products"). Each element is exposed under
+    // `step.itemKey` (default "currentItem") in a per-item context, so params/data
+    // can reference it — e.g. params: "$.currentItem.params", data: "$.currentItem.body".
+    // Requests run concurrently (Promise.all); results keep the input order.
+    if (step.iterate) {
+      const items = await this.resolveValue(step.iterate, this.globalState)
+      if (!Array.isArray(items)) { return [] }
+      const itemKey = step.itemKey || 'currentItem'
+      return Promise.all(items.map((item) => this.performApiCall(step, { ...this.globalState, [itemKey]: item })))
+    }
+    return this.performApiCall(step, this.globalState)
+  }
 
-    // Resolve parameter values using resolveValue function
-    const resolvedUrl = await this.resolveValue(urlToUse, this.globalState)
-    const resolvedHeaders = await this.resolveValue(headers, this.globalState)
-    const resolvedParams = await this.resolveValue(params, this.globalState)
-    const resolvedReqBody = await this.resolveValue(reqBody, this.globalState)
-    const resolvedOptions = await this.processParameters(options, this.globalState)
+  async performApiCall(step, state = this.globalState) {
+    const { method, url: urlToUse, headers, params, data: reqBody, options = {}, name } = step
+    const token = state.token ? state.token : ''
+
+    // Resolve parameter values against the given state (per-item when iterating)
+    const resolvedUrl = await this.resolveValue(urlToUse, state)
+    const resolvedHeaders = await this.resolveValue(headers, state)
+    const resolvedParams = await this.resolveValue(params, state)
+    const resolvedReqBody = await this.resolveValue(reqBody, state)
+    const resolvedOptions = await this.processParameters(options, state)
 
     // Set the authorization header if token is available
     if (token) {
@@ -342,7 +357,6 @@ class JsonDataProcessor {
     }
   }
 }
-
 
 function decorateResponseWithDuration(axiosInstance) {
   axiosInstance.interceptors.response.use(
